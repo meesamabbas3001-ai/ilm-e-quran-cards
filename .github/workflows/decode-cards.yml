@@ -1,0 +1,37 @@
+name: Decode ayat cards
+
+on:
+  push:
+    paths:
+      - "cards/*.png.b64"
+
+permissions:
+  contents: write
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decode base64 cards to PNG
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(cards/*.png.b64)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .png.b64 files"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in "${files[@]}"; do
+            out="${f%.b64}"
+            base64 -d "$f" > "$out"
+            python3 -c "import sys; p=open(sys.argv[1],'rb').read(8); assert p==b'\x89PNG\r\n\x1a\n', p" "$out"
+            git add "$out"
+            git rm -f "$f"
+          done
+          git commit -m "Decode ayat card images from base64"
+          git push
